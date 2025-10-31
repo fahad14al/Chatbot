@@ -1,5 +1,4 @@
 streamlit
-tensorflow
-numpy
-requests
-wikipedia
+transformers
+torch
+accelerate
