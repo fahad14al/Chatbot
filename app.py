@@ -1,55 +1,36 @@
+!pip install transformers accelerate bitsandbytes streamlit
+
 import streamlit as st
-from chatbot.chatbot import chatbot_response
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+import torch
 
-# ------------------- Streamlit App Config -------------------
-st.set_page_config(page_title="AI Chatbot", page_icon="🤖", layout="centered")
+st.title("alai)")
+st.markdown("ASk what you want")
 
-# Title and Description
-st.title("🤖 AI Chatbot using NLTK + TensorFlow + Free APIs")
-st.markdown(
-    """
-    Welcome! 👋  
-    Talk to your intelligent chatbot.  
-    You can ask for **jokes**, **quotes**, **advice**, **cat facts**, **weather**, or **latest news**!  
-    Example:  
-    - "Tell me a joke"  
-    - "Give me advice"  
-    - "Weather in Dhaka"  
-    - "Show me news"  
-    """
-)
+model_name = "Qwen/Qwen2-1.5B-Instruct"
 
-# ------------------- Session State for Chat History -------------------
+with st.spinner("Model is Loading"):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto"
+    )
+    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device_map="auto")
+
 if "messages" not in st.session_state:
-    st.session_state["messages"] = []
+    st.session_state.messages = []
 
-# ------------------- Chat Input -------------------
-if user_input := st.text_input("💬 You:", placeholder="Type your message here..."):
-    # Get bot response from chatbot_core.py
-    reply = chatbot_response(user_input)
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-    # Save to session history
-    st.session_state["messages"].append(("🧍‍♂️ You", user_input))
-    st.session_state["messages"].append(("🤖 Bot", reply))
+if prompt := st.chat_input("Write your question"):
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-# ------------------- Chat Display -------------------
-st.markdown("### 💭 Chat History:")
-if st.session_state["messages"]:
-    for sender, msg in st.session_state["messages"]:
-        with st.chat_message("user" if "You" in sender else "assistant"):
-            st.markdown(f"**{sender}:** {msg}")
-else:
-    st.info("Start chatting above 👆")
-
-# ------------------- Clear Chat Button -------------------
-if st.button("Rerun app"):
-    st.rerun()
-
-# ------------------- Footer -------------------
-st.markdown(
-    """
-    ---
-    💡 **Built with Python, Streamlit, NLTK, and TensorFlow**  
-    Free APIs used: Joke, Quote, Advice, Cat Facts, Weather, News 🌐
-    """
-)
+    with st.chat_message("assistant"):
+        with st.spinner("Now I am thinking🤔..."):
+            reply = pipe(prompt, max_new_tokens=200, temperature=0.7)[0]['generated_text']
+            st.markdown(reply)
+    st.session_state.messages.append({"role": "assistant", "content": reply})
