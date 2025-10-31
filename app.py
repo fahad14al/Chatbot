@@ -1,4 +1,4 @@
-!pip install transformers accelerate bitsandbytes streamlit
+
 
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
