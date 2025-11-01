@@ -1,34 +1,50 @@
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import pipeline
 import torch
 
-st.title("alai)")
-st.markdown("ASk what you want")
+st.title("alai")
+st.markdown("Ask what you want")
 
-model_name = "Qwen/Qwen2-1.5B-Instruct"
-
-with st.spinner("Model is Loading"):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        dtype=torch.float16, 
-        device_map="auto"
+@st.cache_resource
+def load_chatbot():
+    return pipeline(
+        "text-generation",
+        model="Qwen/Qwen2-1.5B-Instruct",
+        torch_dtype=torch.float16,
+        device_map="auto",
+        trust_remote_code=True
     )
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, device_map="auto")
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+with st.spinner("Loading chatbot..."):
+    try:
+        pipe = load_chatbot()
+        st.success("Ready!")
+    except Exception as e:
+        st.error(f"Failed to load: {e}")
+        st.stop()
 
-for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-if prompt := st.chat_input("Write your question"):
+for msg in st.session_state.history:
+    st.chat_message(msg["role"]).markdown(msg["content"])
+
+if prompt := st.chat_input("Your question"):
     st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
+    st.session_state.history.append({"role": "user", "content": prompt})
+    
     with st.chat_message("assistant"):
-        with st.spinner("Now I am thinking🤔..."):
-            reply = pipe(prompt, max_new_tokens=200, temperature=0.7)[0]['generated_text']
-            st.markdown(reply)
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+        with st.spinner("Thinking..."):
+            try:
+                response = pipe(
+                    prompt, 
+                    max_new_tokens=150, 
+                    temperature=0.7
+                )[0]['generated_text']
+                st.markdown(response)
+                st.session_state.history.append({
+                    "role": "assistant", 
+                    "content": response
+                })
+            except Exception as e:
+                st.error(f"Error: {e}")
